@@ -12,8 +12,9 @@
 // * (photoresistor) adjust brightness. Calibrate using a light level comparator against the LED itself.
 // * keypad on back? And/or not buttons: instead, toch-sensitive pads or
 // * compass? https://brainy-bits.com/tutorials/find-your-way-using-the-hmc5883l/
-// * visual: smooth fade seconds. Additive color values.Pulsing clock face every second.
+// * visual: smooth fade seconds. Additive color values.Pulsing clock face every second. Pulses twice if P.M.
 // * alarm clock
+// * WiFi signal presence/strength detector, open spot detector
 // put on github, publish
 
 // Hardware:
@@ -33,6 +34,7 @@
 // https://petestechprojects.wordpress.com/2014/12/10/mini-server-on-arduino-esp8266/
 // https://petestechprojects.wordpress.com/2014/12/08/leds-control-through-tty/
 // https://petestechprojects.wordpress.com/2014/11/30/esp8266-4-wifi-module-bring-up/
+// https://hackaday.io/project/3072/instructions
 // ... and timetnp example in time library
 // links: keypad
 // http://www.learningaboutelectronics.com/Articles/Arduino-keypad-circuit.php
@@ -57,6 +59,8 @@
 #define NEOPIXEL_PIN 9
 #define LEDCOUNT 60
 
+#define HAND_TRAIL_STRENGTH 32
+
 #define SHIFT_BLUE 0
 #define SHIFT_GREEN 8
 #define SHIFT_RED 16
@@ -69,6 +73,8 @@ int ticksInLastSecond = 0; // benchmark
 
 // Colors. TODO: read in terminal, change to defines
 uint32_t faceOffColor, faceHourColor, faceQuarterColor, face12Color, handHColor, handMColor, handSColor;
+uint32_t tNegativeColor, tColdColor, tComfortColor, tHotColor; // TODO: tables, and partial (cyan and yellow).
+uint8_t tColdThreshold = 0, tComfortThreshold = 20, tHotThreshold = 25; // Celcius
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -83,15 +89,20 @@ void setup() {
   Serial.begin(9600);
   while (!Serial) ; // Needed for Leonardo only
   strip.begin();
-  strip.setBrightness(64); // 1-255
+  strip.setBrightness(64); // 1-255. Note: 15% speedup if setBrightness is never used!
 
   faceOffColor = strip.Color(0, 0, 0);
-  faceQuarterColor = strip.Color(0x10, 0x10, 0x10);
-  faceHourColor = strip.Color(0x08, 0x08, 0x08);
-  face12Color = strip.Color(0x40, 0x40, 0x40);
+  faceQuarterColor = strip.Color(0x20, 0x20, 0x20);
+  faceHourColor = strip.Color(0x16, 0x16, 0x16);
+  face12Color = strip.Color(0x80, 0x80, 0x80);
   handHColor = strip.Color(0xFF, 0, 0);
   handMColor = strip.Color(0, 0xFF, 0);
-  handSColor = strip.Color(0, 0, 0x90);
+  handSColor = strip.Color(0, 0, 0xA0);
+  
+  tNegativeColor = strip.Color(0, 0, 0);
+  tColdColor = strip.Color(0, 0, 0xFF);
+  tComfortColor = strip.Color(0, 0xFF, 0);
+  tHotColor = strip.Color(0xFF, 0, 0);
 
   //strip.show(); // Initialize all pixels to 'off'
 
@@ -113,21 +124,30 @@ void loop() {
 }
 
 void paintClockFace() {
-  uint8_t strength = 0xFF - constrain((timeNow-timeLast) >> 1, 0, 0xFF);
-  //Serial.print("\t");
-  //Serial.println(strength);
+  uint8_t strength = 0x100 - constrain((timeNow-timeLast) >> 1, 0, 0x100); // closer to 0.5s. Half that is too little to see the face.
   strip.setPixelColor(0, getFadedColor(face12Color, strength));
+  uint32_t fadedFaceQuarterColor = getFadedColor(faceQuarterColor, strength);
+  uint32_t fadedFaceHourColor = getFadedColor(faceHourColor, strength);
   for (int i = 1; i < LEDCOUNT; i++) {
     strip.setPixelColor(i, (i%5 == 0) ? // hour marks
-          getFadedColor( ((i%15 == 0) ? faceQuarterColor : faceHourColor), strength) :
+          ((i%15 == 0) ? fadedFaceQuarterColor : fadedFaceHourColor) :
           faceOffColor);
   }
 }
 
-void paintClockhands() {
-  stackColor(s, handSColor, 0xFF, 0xFF);
-  stackColor(m, handMColor, 0xFF, 0xFF);
-  stackColor(5*h, handHColor, 0xFF, 0xFF);
+void paintClockHands() {
+  stackColor(s, handSColor, 0x100, 0x100);
+  stackColor(m, handMColor, 0x100, 0x100);
+  stackColor(5*h, handHColor, 0x100, 0x100);
+}
+
+void paintClockHandsTrail() {
+//  for (int i = s-1; i >= 0; i--)
+//    stackColor(i, handSColor, 0x100, HAND_TRAIL_STRENGTH);
+  for (int i = m-1; i >= 0; i--)
+    stackColor(i, handMColor, 0x100, HAND_TRAIL_STRENGTH);
+  for (int i = 5*h-1; i >= 0; i--)
+    stackColor(i, handHColor, 0x100, HAND_TRAIL_STRENGTH);
 }
 
 void updateClockVars() {
@@ -146,11 +166,12 @@ void updateClockVars() {
   }
 }
 
-uint8_t getColorComponent(uint32_t packedColor, short shift, uint8_t strength) {
-  return (((uint8_t)(packedColor >> shift)) * strength) >> 8; // note: full strength is /255 *256 (always less!)
+uint8_t getColorComponent(uint32_t packedColor, short shift, uint16_t strength) { // note: full strength would be /255 *256 (always less!) if we used uint8_t for strength
+  return (((uint8_t)(packedColor >> shift)) * strength) >> 8; 
 }
 
-void stackColor(uint16_t led, uint32_t newColor, uint8_t oldStrength, uint8_t newStrength){
+// strength max is 0x100, not 0xFF
+void stackColor(uint16_t led, uint32_t newColor, uint16_t oldStrength, uint16_t newStrength){ // TODO: version without strengths
   uint32_t oldColor = strip.getPixelColor(led);
   uint8_t
       oldR = getColorComponent(oldColor, SHIFT_RED, oldStrength),
@@ -164,7 +185,7 @@ void stackColor(uint16_t led, uint32_t newColor, uint8_t oldStrength, uint8_t ne
       constrain(oldG+newG, 0, 0xFF),
       constrain(oldB+newB, 0, 0xFF));
 }
-uint32_t getFadedColor(uint32_t packedColor, uint8_t strength){
+uint32_t getFadedColor(uint32_t packedColor, uint16_t strength){
   
   //Serial.print(getColorComponent(packedColor, SHIFT_RED, strength));
   //Serial.println("\t");
@@ -176,11 +197,10 @@ uint32_t getFadedColor(uint32_t packedColor, uint8_t strength){
 
 
 void tick() {
-  // TODO: store time of last change of seconds,
-  // oldStrength dependent on time since then (like, constrain(diff > 1, 0, 0xFF)
   updateClockVars();
   paintClockFace();
-  paintClockhands();
+  paintClockHands();
+  paintClockHandsTrail();
   strip.show();
 }
 
