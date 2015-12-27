@@ -52,8 +52,6 @@
 #include <TimeLib.h>
 #include <Wire.h>
 #include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
-#include <Time.h>
-#include <TimeAlarms.h>
 
 // Arduino pin number (most are valid)
 #define NEOPIXEL_PIN 9
@@ -91,20 +89,18 @@ void setup() {
 
   
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
-  if(timeStatus()!= timeSet) {
+  while(timeStatus()!= timeSet) {
     Serial.println("Unable to sync with the RTC");
-    rainbowCycle(3);
-  } else {
-     Serial.println("RTC has set the system time");
+    rainbowCycle(10, 1);
   }
-
-  Alarm.timerRepeat(1, tick);
+  digitalClockDisplay();
+  rainbowCycle(2, 1); // kinda a bootup anim
 }
 
 void loop() {
   //rainbowCycle(5);
   
-  Alarm.delay(10000); // This delay should be used instead of the normal Arduino delay(), for timely processing of alarms and timers.
+  tick();
 }
 
 void paintClockFace() {
@@ -115,16 +111,47 @@ void paintClockFace() {
           faceOffColor);
   }
 }
-void paintClockhandSColor() {
-  strip.setPixelColor(second()%60, handSColor);
-  strip.setPixelColor(minute()%60, handMColor);
-  strip.setPixelColor(5*hour()%12, handHColor);
+void paintClockhands() {
+//  strip.setPixelColor(second()%60, handSColor);
+//  strip.setPixelColor(minute()%60, handMColor);
+//  strip.setPixelColor(5*hour()%12, handHColor);
+  stackColor(second()%60, handSColor, 0xFF, 0xFF);
+  stackColor(minute()%60, handMColor, 0xFF, 0xFF);
+  stackColor(5*(hour()%12), handHColor, 0xFF, 0xFF);
+}
+
+void stackColor(uint16_t led, uint32_t newColor, uint8_t oldStrength, uint8_t newStrength){
+  uint32_t oldColor = strip.getPixelColor(led);
+  uint8_t
+      oldR = (uint8_t)(oldColor >> 16),
+      oldG = (uint8_t)(oldColor >>  8),
+      oldB = (uint8_t)oldColor,
+      newR = (uint8_t)(newColor >> 16),
+      newG = (uint8_t)(newColor >>  8),
+      newB = (uint8_t)newColor;
+  oldR = (oldR * oldStrength) >> 8;
+  oldG = (oldG * oldStrength) >> 8;
+  oldB = (oldB * oldStrength) >> 8;
+  newR = (newR * newStrength) >> 8;
+  newG = (newG * newStrength) >> 8;
+  newB = (newB * newStrength) >> 8;
+  strip.setPixelColor(led,
+      (uint8_t) constrain(oldR+newR, 0, 0xFF),
+      (uint8_t) constrain(oldG+newG, 0, 0xFF),
+      (uint8_t) constrain(oldB+newB, 0, 0xFF));
+//  strip.setPixelColor(led,
+//      oldR+newR,
+//      oldG+newG,
+//      oldB+newB);
+
 }
 
 
 void tick() {
+  // TODO: store time of last change of seconds,
+  // oldStrength dependent on time since then (like, constrain(diff > 1, 0, 0xFF)
   paintClockFace();
-  paintClockhandSColor();
+  paintClockhands();
   strip.show();
 }
 
@@ -137,10 +164,10 @@ void tick() {
 
 
 
-void rainbowCycle(uint8_t wait) {
+void rainbowCycle(uint8_t wait, int cycles) {
   uint16_t i, j;
 
-  for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
+  for (j = 0; j < 256 * cycles; j++) {
     for (i = 0; i < LEDCOUNT; i++) {
       strip.setPixelColor(i, Wheel(((i * 256 / LEDCOUNT) + j) & 255));
     }
@@ -163,4 +190,28 @@ uint32_t Wheel(byte WheelPos) {
   }
   WheelPos -= 170;
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+
+
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.print(" ");
+  Serial.print(day());
+  Serial.print(" ");
+  Serial.print(month());
+  Serial.print(" ");
+  Serial.print(year()); 
+  Serial.println(); 
+}
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  Serial.print(":");
+  if(digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
 }
