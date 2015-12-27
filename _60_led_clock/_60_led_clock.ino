@@ -55,6 +55,8 @@
 #include <Wire.h>
 #include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
 
+#include <EEPROM.h> // persistent storage
+
 // Arduino pin number (most are valid)
 #define NEOPIXEL_PIN 9
 #define LEDCOUNT 60
@@ -82,19 +84,40 @@ uint8_t tColdThreshold = 0, tComfortThreshold = 20, tHotThreshold = 25; // Celci
 // on a live circuit...if you must, connect GND first.
 
 
-#define FIREBALL_LENGTH 6
+byte fireballSpacing = 6;
 uint32_t fireball_colors[] = {
   strip.Color(0xFF, 0xE0, 0xA0),
   strip.Color(0xFF, 0xB0, 0x08),
   strip.Color(0xA0, 0x50, 0x0),
   strip.Color(0x40, 0x0F, 0x0),
   strip.Color(0x08, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
+  strip.Color(0, 0, 0),
   strip.Color(0, 0, 0)
 };
+
+int eeprom_address__pattern = 0;
+byte pattern = 0;
+#define LED_PATTERN_COUNT 6
 
 
 
 void setup() {
+  pattern = EEPROM.read(eeprom_address__pattern);
+  EEPROM.update(eeprom_address__pattern, (pattern+1)%LED_PATTERN_COUNT);
+  
   Serial.begin(9600);
   while (!Serial) ; // Needed for Leonardo only
   strip.begin();
@@ -119,7 +142,26 @@ void setup() {
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
   while(timeStatus()!= timeSet) {
     Serial.println("Unable to sync with the RTC");
-    fireballs(80);
+    switch(pattern){
+      case 1:
+        fireballSpacing = 20;
+        fireballs(15);
+        break;
+      case 2:
+        fireballSpacing = 12;
+        fireballs(20);
+        break;
+      case 3:
+        fireballSpacing = 10;
+        fireballs(40);
+        break;
+      case 4:
+        fireballSpacing = 6;
+        fireballs(60);
+        break;
+      default:
+        rainbowCycle(10,1);
+    }
     processSerial();
   }
   digitalClockDisplay();
@@ -267,9 +309,9 @@ void rainbowCycle(uint8_t wait, int cycles) {
 
 void fireballs(uint8_t wait) {
   int n = strip.numPixels();
-  for (int q=0; q < FIREBALL_LENGTH; q++) {
+  for (int q=0; q < fireballSpacing; q++) {
     for (int i=0; i < n; i++) {
-      strip.setPixelColor(i, fireball_colors[(i+q)%FIREBALL_LENGTH]);
+      strip.setPixelColor(i, fireball_colors[(i+q)%fireballSpacing]);
     }
     strip.show();
     delay(wait);
