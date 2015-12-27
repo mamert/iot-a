@@ -111,6 +111,7 @@ void setup() {
   while(timeStatus()!= timeSet) {
     Serial.println("Unable to sync with the RTC");
     rainbowCycle(10, 1);
+    processSerial();
   }
   digitalClockDisplay();
   timeLast = millis();
@@ -202,11 +203,40 @@ void tick() {
   paintClockHands();
   paintClockHandsTrail();
   strip.show();
+  //if(ticksInLastSecond == 0){
+    processSerial();
+  //}
 }
 
 
 
 
+
+#define TIME_HEADER  "SetTime:"   // Header tag for serial time sync message
+void processSerial()
+{
+  if (Serial.available()) {
+    time_t t = processSyncMessage();
+    if (t != 0) {
+      RTC.set(t);   // set the RTC and the system time to the received value
+      setTime(t);          
+    }
+  }
+}
+
+unsigned long processSyncMessage() {
+  unsigned long pctime = 0L;
+  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013 
+
+  if(Serial.find(TIME_HEADER)) {
+     pctime = Serial.parseInt();
+     return pctime;
+     if( pctime < DEFAULT_TIME) { // check the value is a valid time (greater than Jan 1 2013)
+       pctime = 0L; // return 0 to indicate that the time is not valid
+     }
+  }
+  return pctime;
+}
 
 
 
