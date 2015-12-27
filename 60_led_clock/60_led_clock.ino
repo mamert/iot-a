@@ -57,7 +57,15 @@
 #define NEOPIXEL_PIN 9
 #define LEDCOUNT 60
 
+#define SHIFT_BLUE 0
+#define SHIFT_GREEN 8
+#define SHIFT_RED 16
+
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LEDCOUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
+unsigned long timeLast, timeNow;
+byte lastSecond = -1, s, m, h;
+int ticksInLastSecond = 0; // benchmark
 
 // Colors. TODO: read in terminal, change to defines
 uint32_t faceOffColor, faceHourColor, faceQuarterColor, face12Color, handHColor, handMColor, handSColor;
@@ -75,7 +83,7 @@ void setup() {
   Serial.begin(9600);
   while (!Serial) ; // Needed for Leonardo only
   strip.begin();
-  strip.setBrightness(32); // 1-255
+  strip.setBrightness(64); // 1-255
 
   faceOffColor = strip.Color(0, 0, 0);
   faceQuarterColor = strip.Color(0x10, 0x10, 0x10);
@@ -83,9 +91,9 @@ void setup() {
   face12Color = strip.Color(0x40, 0x40, 0x40);
   handHColor = strip.Color(0xFF, 0, 0);
   handMColor = strip.Color(0, 0xFF, 0);
-  handSColor = strip.Color(0, 0, 0xA0);
+  handSColor = strip.Color(0, 0, 0x90);
 
-  strip.show(); // Initialize all pixels to 'off'
+  //strip.show(); // Initialize all pixels to 'off'
 
   
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
@@ -94,6 +102,7 @@ void setup() {
     rainbowCycle(10, 1);
   }
   digitalClockDisplay();
+  timeLast = millis();
   rainbowCycle(2, 1); // kinda a bootup anim
 }
 
@@ -104,52 +113,72 @@ void loop() {
 }
 
 void paintClockFace() {
-  strip.setPixelColor(0, face12Color);
+  uint8_t strength = 0xFF - constrain((timeNow-timeLast) >> 1, 0, 0xFF);
+  //Serial.print("\t");
+  //Serial.println(strength);
+  strip.setPixelColor(0, getFadedColor(face12Color, strength));
   for (int i = 1; i < LEDCOUNT; i++) {
     strip.setPixelColor(i, (i%5 == 0) ? // hour marks
-          ((i%15 == 0) ? faceQuarterColor : faceHourColor) :
+          getFadedColor( ((i%15 == 0) ? faceQuarterColor : faceHourColor), strength) :
           faceOffColor);
   }
 }
+
 void paintClockhands() {
-//  strip.setPixelColor(second()%60, handSColor);
-//  strip.setPixelColor(minute()%60, handMColor);
-//  strip.setPixelColor(5*hour()%12, handHColor);
-  stackColor(second()%60, handSColor, 0xFF, 0xFF);
-  stackColor(minute()%60, handMColor, 0xFF, 0xFF);
-  stackColor(5*(hour()%12), handHColor, 0xFF, 0xFF);
+  stackColor(s, handSColor, 0xFF, 0xFF);
+  stackColor(m, handMColor, 0xFF, 0xFF);
+  stackColor(5*h, handHColor, 0xFF, 0xFF);
+}
+
+void updateClockVars() {
+  timeNow = millis();
+  s = second();
+  if(s != lastSecond){
+    lastSecond = s;
+    Serial.print("ticksInLastSecond: ");
+    Serial.println(ticksInLastSecond);
+    ticksInLastSecond = 0;
+    timeLast = timeNow;
+    m = minute();
+    h = hour()%12;
+  } else {
+    ticksInLastSecond++;
+  }
+}
+
+uint8_t getColorComponent(uint32_t packedColor, short shift, uint8_t strength) {
+  return (((uint8_t)(packedColor >> shift)) * strength) >> 8; // note: full strength is /255 *256 (always less!)
 }
 
 void stackColor(uint16_t led, uint32_t newColor, uint8_t oldStrength, uint8_t newStrength){
   uint32_t oldColor = strip.getPixelColor(led);
   uint8_t
-      oldR = (uint8_t)(oldColor >> 16),
-      oldG = (uint8_t)(oldColor >>  8),
-      oldB = (uint8_t)oldColor,
-      newR = (uint8_t)(newColor >> 16),
-      newG = (uint8_t)(newColor >>  8),
-      newB = (uint8_t)newColor;
-  oldR = (oldR * oldStrength) >> 8;
-  oldG = (oldG * oldStrength) >> 8;
-  oldB = (oldB * oldStrength) >> 8;
-  newR = (newR * newStrength) >> 8;
-  newG = (newG * newStrength) >> 8;
-  newB = (newB * newStrength) >> 8;
+      oldR = getColorComponent(oldColor, SHIFT_RED, oldStrength),
+      oldG = getColorComponent(oldColor, SHIFT_GREEN, oldStrength),
+      oldB = getColorComponent(oldColor, SHIFT_BLUE, oldStrength),
+      newR = getColorComponent(newColor, SHIFT_RED, newStrength),
+      newG = getColorComponent(newColor, SHIFT_GREEN, newStrength),
+      newB = getColorComponent(newColor, SHIFT_BLUE, newStrength);
   strip.setPixelColor(led,
-      (uint8_t) constrain(oldR+newR, 0, 0xFF),
-      (uint8_t) constrain(oldG+newG, 0, 0xFF),
-      (uint8_t) constrain(oldB+newB, 0, 0xFF));
-//  strip.setPixelColor(led,
-//      oldR+newR,
-//      oldG+newG,
-//      oldB+newB);
-
+      constrain(oldR+newR, 0, 0xFF),
+      constrain(oldG+newG, 0, 0xFF),
+      constrain(oldB+newB, 0, 0xFF));
+}
+uint32_t getFadedColor(uint32_t packedColor, uint8_t strength){
+  
+  //Serial.print(getColorComponent(packedColor, SHIFT_RED, strength));
+  //Serial.println("\t");
+  return strip.Color(
+      getColorComponent(packedColor, SHIFT_RED, strength),
+      getColorComponent(packedColor, SHIFT_GREEN, strength),
+      getColorComponent(packedColor, SHIFT_BLUE, strength));
 }
 
 
 void tick() {
   // TODO: store time of last change of seconds,
   // oldStrength dependent on time since then (like, constrain(diff > 1, 0, 0xFF)
+  updateClockVars();
   paintClockFace();
   paintClockhands();
   strip.show();
