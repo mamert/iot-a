@@ -82,6 +82,15 @@ uint8_t tColdThreshold = 0, tComfortThreshold = 20, tHotThreshold = 25; // Celci
 // on a live circuit...if you must, connect GND first.
 
 
+#define FIREBALL_LENGTH 6
+uint32_t fireball_colors[] = {
+  strip.Color(0xFF, 0xE0, 0xA0),
+  strip.Color(0xFF, 0xB0, 0x08),
+  strip.Color(0xA0, 0x50, 0x0),
+  strip.Color(0x40, 0x0F, 0x0),
+  strip.Color(0x08, 0, 0),
+  strip.Color(0, 0, 0)
+};
 
 
 
@@ -110,7 +119,7 @@ void setup() {
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
   while(timeStatus()!= timeSet) {
     Serial.println("Unable to sync with the RTC");
-    rainbowCycle(10, 1);
+    fireballs(80);
     processSerial();
   }
   digitalClockDisplay();
@@ -255,6 +264,17 @@ void rainbowCycle(uint8_t wait, int cycles) {
   }
 }
 
+
+void fireballs(uint8_t wait) {
+  int n = strip.numPixels();
+  for (int q=0; q < FIREBALL_LENGTH; q++) {
+    for (int i=0; i < n; i++) {
+      strip.setPixelColor(i, fireball_colors[(i+q)%FIREBALL_LENGTH]);
+    }
+    strip.show();
+    delay(wait);
+  }
+}
 
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
