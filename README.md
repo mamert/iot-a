@@ -7,3 +7,8 @@ Initial idea:
 * 1 relay node - 2x power, 2+ USB power ports, thermometer.
 * 1 breadboard on battery. Initially: thermometer?
 
+TODO:
+* WiFi, to set time via SNTP or somesuch
+* WiFi setup GUI
+
+
