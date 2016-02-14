@@ -335,18 +335,19 @@ void espRcvEvent(int howMany) {
   
   // switch(cmd){
 	// case 'T':
-	  // unsigned long int newTime = strtoul(buf, 0, 10);
+	  // unsigned long int newTime = strtoul(buf, NULL, 10);
 	  // Serial.print("buf=");
 	  // Serial.print(buf);
 	  // Serial.print("; newTime=");
 	  // Serial.println(newTime);
 	  
 	  // break;
-    // }
   // }
 }
 void espReqEvent(){
   Serial.print("espReqEvent");
+  Serial.print("buf=");
+  Serial.print(buf);
   // String response = data.c_str();
   
   // char buf[21];
