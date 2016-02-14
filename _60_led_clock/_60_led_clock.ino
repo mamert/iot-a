@@ -53,7 +53,7 @@
 // timekeeping
 #include <TimeLib.h>
 #include <Wire.h>
-#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
 
 #include <EEPROM.h> // persistent storage
 
@@ -66,6 +66,8 @@
 #define SHIFT_BLUE 0
 #define SHIFT_GREEN 8
 #define SHIFT_RED 16
+
+#define I2C_RESPONSE_LEN 20
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LEDCOUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -115,8 +117,8 @@ byte pattern = 0;
 
 
 void setup() {
-  pattern = EEPROM.read(eeprom_address__pattern);
-  EEPROM.update(eeprom_address__pattern, (pattern+1)%LED_PATTERN_COUNT);
+  // pattern = EEPROM.read(eeprom_address__pattern);
+  // EEPROM.update(eeprom_address__pattern, (pattern+1)%LED_PATTERN_COUNT);
   
   Serial.begin(9600);
   while (!Serial) ; // Needed for Leonardo only
@@ -138,31 +140,32 @@ void setup() {
 
   //strip.show(); // Initialize all pixels to 'off'
 
-  
-  setSyncProvider(RTC.get);   // the function to get the time from the RTC
+  setUpEsp();
+  //setSyncProvider(RTC.get);   // the function to get the time from the RTC
   while(timeStatus()!= timeSet) {
     Serial.println("Unable to sync with the RTC");
-    switch(pattern){
-      case 1:
-        fireballSpacing = 20;
-        fireballs(15);
-        break;
-      case 2:
-        fireballSpacing = 12;
-        fireballs(20);
-        break;
-      case 3:
-        fireballSpacing = 10;
-        fireballs(40);
-        break;
-      case 4:
-        fireballSpacing = 6;
-        fireballs(60);
-        break;
-      default:
-        rainbowCycle(10,1);
-    }
-    processSerial();
+    // switch(pattern){
+      // case 1:
+        // fireballSpacing = 20;
+        // fireballs(15);
+        // break;
+      // case 2:
+        // fireballSpacing = 12;
+        // fireballs(20);
+        // break;
+      // case 3:
+        // fireballSpacing = 10;
+        // fireballs(40);
+        // break;
+      // case 4:
+        // fireballSpacing = 6;
+        // fireballs(60);
+        // break;
+      // default:
+        // rainbowCycle(10,1);
+    // }
+	delay(1000);
+    //processInput(Serial);
   }
   digitalClockDisplay();
   timeLast = millis();
@@ -254,39 +257,6 @@ void tick() {
   paintClockHands();
   paintClockHandsTrail();
   strip.show();
-  //if(ticksInLastSecond == 0){
-    processSerial();
-  //}
-}
-
-
-
-
-
-#define TIME_HEADER  "SetTime:"   // Header tag for serial time sync message
-void processSerial()
-{
-  if (Serial.available()) {
-    time_t t = processSyncMessage();
-    if (t != 0) {
-      RTC.set(t);   // set the RTC and the system time to the received value
-      setTime(t);          
-    }
-  }
-}
-
-unsigned long processSyncMessage() {
-  unsigned long pctime = 0L;
-  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013 
-
-  if(Serial.find(TIME_HEADER)) {
-     pctime = Serial.parseInt();
-     return pctime;
-     if( pctime < DEFAULT_TIME) { // check the value is a valid time (greater than Jan 1 2013)
-       pctime = 0L; // return 0 to indicate that the time is not valid
-     }
-  }
-  return pctime;
 }
 
 
@@ -333,6 +303,57 @@ uint32_t Wheel(byte WheelPos) {
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
+
+
+
+void setUpEsp(){
+  Wire.begin(0x40); // set as slave device, address chosen arbitrarily
+  Wire.onReceive(espRcvEvent);
+  Wire.onRequest(espReqEvent);
+}
+
+char buf[20];
+uint8_t bufLen = 0;
+//String data = "";
+void espRcvEvent(int howMany) {
+  Serial.print("!espRcvEvent, howMany=");
+  Serial.println(howMany);
+  // if(!Wire.available()) // WHY - adding this makes every second request return garbage
+    // return;
+  // char cmd = Wire.read();
+  // Serial.print("cmd=");
+  // Serial.println(cmd);
+  
+  int idx = 0;
+  while(Wire.available()){
+	  buf[idx++] = (char)Wire.read();
+  }
+  bufLen = idx;
+  Serial.print("bufLen=");
+  Serial.println(bufLen);
+  buf[idx] = 0;
+  
+  // switch(cmd){
+	// case 'T':
+	  // unsigned long int newTime = strtoul(buf, 0, 10);
+	  // Serial.print("buf=");
+	  // Serial.print(buf);
+	  // Serial.print("; newTime=");
+	  // Serial.println(newTime);
+	  
+	  // break;
+    // }
+  // }
+}
+void espReqEvent(){
+  Serial.print("espReqEvent");
+  // String response = data.c_str();
+  
+  // char buf[21];
+  // response.toCharArray(buf, 32);
+  // Wire.write("abcdefghijklmnopqrstuvwxyz");
+  Wire.write(buf);
+}
 
 
 

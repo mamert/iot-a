@@ -8,7 +8,13 @@ Initial idea:
 * 1 breadboard on battery. Initially: thermometer?
 
 TODO:
-* WiFi, to set time via SNTP or somesuch
-* WiFi setup GUI
+* I2C connection
+* WiFi, SNTP to arduino
+* WiFi end-user setup
+* daylight savings and timezone, configurable in UI https://github.com/JChristensen/Timezone
+* disable the pattern cycling until real pattern setup is created (move to i2c command; disable saving)
+* keypad? I2C send to the non-connected unit...
+* command: turn off esp, or at least disable WiFi
+
 
 
