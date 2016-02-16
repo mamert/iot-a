@@ -13,12 +13,14 @@ function send_to_duino(cmd, data)
 	-- print("Sent "..i2c.write(0, ""..cmd..data))
 	print("Sent "..i2c.write(0, cmd, data))
 	i2c.stop(0)
-	i2c.start(0)
-	i2c.address(0, duino,i2c.RECEIVER)
-	ret=i2c.read(0,20) -- response is 20 bytes
-	i2c.stop(0)
-	print("Received "..ret)
-	return ret
+	-- use timer6, delay read so arduino can finish
+	tmr.alarm(6, 150, 0, function() 
+		i2c.start(0)
+		i2c.address(0, duino,i2c.RECEIVER)
+		ret=i2c.read(0,20) -- response is 20 bytes
+		i2c.stop(0)
+		print("Received "..ret)
+    end )
 end
 
 

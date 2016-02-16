@@ -316,43 +316,27 @@ char buf[20];
 uint8_t bufLen = 0;
 //String data = "";
 void espRcvEvent(int howMany) {
-  Serial.print("!espRcvEvent, howMany=");
-  Serial.println(howMany);
-  // if(!Wire.available()) // WHY - adding this makes every second request return garbage
-    // return;
-  // char cmd = Wire.read();
-  // Serial.print("cmd=");
-  // Serial.println(cmd);
-  
+  // TODO: this takes >50ms. Set a flag and make it execute in next tick.
   int idx = 0;
   while(Wire.available()){
 	  buf[idx++] = (char)Wire.read();
   }
-  bufLen = idx;
-  Serial.print("bufLen=");
-  Serial.println(bufLen);
   buf[idx] = 0;
-  
-  // switch(cmd){
-	// case 'T':
-	  // unsigned long int newTime = strtoul(buf, NULL, 10);
-	  // Serial.print("buf=");
-	  // Serial.print(buf);
-	  // Serial.print("; newTime=");
-	  // Serial.println(newTime);
-	  
-	  // break;
-  // }
+  switch(buf[0]){
+	case 'T':
+	  Serial.print("buf=");
+	  Serial.print(buf);
+	  unsigned long int newTime = strtoul(&buf[1], NULL, 10);
+	  Serial.print("; newTime=");
+	  Serial.println(newTime);
+	  setTime(newTime);
+	  break;
+  }
 }
 void espReqEvent(){
   Serial.print("espReqEvent");
   Serial.print("buf=");
   Serial.print(buf);
-  // String response = data.c_str();
-  
-  // char buf[21];
-  // response.toCharArray(buf, 32);
-  // Wire.write("abcdefghijklmnopqrstuvwxyz");
   Wire.write(buf);
 }
 
