@@ -25,6 +25,27 @@ end
 
 
 
+
+
+
+function contactNTP()
+	local timeserver = "3.pool.ntp.org"
+	--TODO: on fail cycle servers
+	-- net.dns.resolve("3.pool.ntp.org", function (dontUseThisSocket, ip)
+				 -- if ip == nil then print("3.pool.ntp.org DNS fail!") else print(ip) end
+	-- end )
+	sntp.sync(timeserver,
+	  function(sec,usec,server)
+		print("sync", sec, usec, server)
+		send_to_duino('T', ""..(sec+1))
+	  end,
+	  function()
+	   print("sync failed!")
+	  end
+	)
+end
+
+
 button1Pin = 3 -- "flash" btn
 function pressed1()
 	tmr.delay(10)                   
@@ -33,7 +54,7 @@ end
 function released1()
 	tmr.delay(10)
 	gpio.trig(button1Pin,"down",pressed1)
-	send_to_duino('T', "1453962829")
+	contactNTP()
 end
 function prep_button1()
 	gpio.mode(button1Pin,gpio.INT,gpio.PULLUP)
