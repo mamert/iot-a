@@ -17,7 +17,7 @@ TODO:
 ** reed (sth special, like store settings)
 ** touch sensor (light intensity levels? Fluid increase/decrease)
 * switch between STA & AP. AP times out after 8 minutes (tmr) reset on every request made to server in that mode
-* add a piezo buzzer (for tone generation, not alarm) to arduino, for later use
+* add a piezo buzzer (for tone generation, not alarm) to arduino, for tick sounds (PWM-capable pin, but use digital only: 1->0, 0->1, ...) and later use for tones
 
 
 
