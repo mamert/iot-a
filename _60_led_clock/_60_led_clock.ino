@@ -214,15 +214,17 @@ void paintClockHandsTrail() {
 
 void updateClockVars() {
   timeNow = millis();
-  s = second();
+  
+  time_t localTime = CE.toLocal(now(), &tcr);
+  s = second(localTime);
   if(s != lastSecond){
     lastSecond = s;
     Serial.print("ticksInLastSecond: ");
     Serial.println(ticksInLastSecond);
     ticksInLastSecond = 0;
     timeLast = timeNow;
-    m = minute();
-    h = hour()%12;
+    m = minute(localTime);
+    h = hour(localTime)%12;
   } else {
     ticksInLastSecond++;
   }
@@ -332,7 +334,7 @@ void espRcvEvent(int howMany) {
   switch(buf[0]){
 	case 'T':
 	  unsigned long int newTime = strtoul(&buf[1], NULL, 10);
-	  setTime(CE.toLocal(newTime, &tcr));
+	  setTime(newTime);
 	  break;
   }
 }
@@ -347,15 +349,16 @@ void espReqEvent(){
 
 void digitalClockDisplay(){
   // digital clock display of the time
-  Serial.print(hour());
-  printDigits(minute());
-  printDigits(second());
+  time_t localTime = CE.toLocal(now(), &tcr);
+  Serial.print(hour(localTime));
+  printDigits(minute(localTime));
+  printDigits(second(localTime));
   Serial.print(" ");
-  Serial.print(day());
+  Serial.print(day(localTime));
   Serial.print(" ");
-  Serial.print(month());
+  Serial.print(month(localTime));
   Serial.print(" ");
-  Serial.print(year()); 
+  Serial.print(year(localTime)); 
   Serial.println(); 
 }
 void printDigits(int digits){
