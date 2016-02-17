@@ -51,9 +51,16 @@
 #endif
 
 // timekeeping
-#include <TimeLib.h>
+//#include <TimeLib.h>
 #include <Wire.h>
+#include <Time.h>        //http://www.arduino.cc/playground/Code/Time
+#include <Timezone.h>    //https://github.com/JChristensen/Timezone
 //#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
+TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};       //Central European Standard Time
+Timezone CE(CEST, CET);
+TimeChangeRule *tcr; //pointer to the time change rule, use to get TZ abbrev
+
 
 #include <EEPROM.h> // persistent storage
 
@@ -324,12 +331,8 @@ void espRcvEvent(int howMany) {
   buf[idx] = 0;
   switch(buf[0]){
 	case 'T':
-	  Serial.print("buf=");
-	  Serial.print(buf);
 	  unsigned long int newTime = strtoul(&buf[1], NULL, 10);
-	  Serial.print("; newTime=");
-	  Serial.println(newTime);
-	  setTime(newTime);
+	  setTime(CE.toLocal(newTime, &tcr));
 	  break;
   }
 }
