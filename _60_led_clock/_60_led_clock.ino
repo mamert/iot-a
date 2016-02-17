@@ -15,7 +15,6 @@
 // * visual: smooth fade seconds. Additive color values.Pulsing clock face every second. Pulses twice if P.M.
 // * alarm clock
 // * WiFi signal presence/strength detector, open spot detector
-// put on github, publish
 
 // Hardware:
 // infinity mirror (buy: 35x35cm, 1 mirror, 1 glass)
