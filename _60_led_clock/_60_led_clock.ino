@@ -50,9 +50,16 @@
 #endif
 
 // timekeeping
-#include <TimeLib.h>
+//#include <TimeLib.h>
 #include <Wire.h>
+#include <Time.h>        //http://www.arduino.cc/playground/Code/Time
+#include <Timezone.h>    //https://github.com/JChristensen/Timezone
 //#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
+TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};       //Central European Standard Time
+Timezone CE(CEST, CET);
+TimeChangeRule *tcr; //pointer to the time change rule, use to get TZ abbrev
+
 
 #include <EEPROM.h> // persistent storage
 
@@ -206,15 +213,17 @@ void paintClockHandsTrail() {
 
 void updateClockVars() {
   timeNow = millis();
-  s = second();
+  
+  time_t localTime = CE.toLocal(now(), &tcr);
+  s = second(localTime);
   if(s != lastSecond){
     lastSecond = s;
     Serial.print("ticksInLastSecond: ");
     Serial.println(ticksInLastSecond);
     ticksInLastSecond = 0;
     timeLast = timeNow;
-    m = minute();
-    h = hour()%12;
+    m = minute(localTime);
+    h = hour(localTime)%12;
   } else {
     ticksInLastSecond++;
   }
@@ -323,11 +332,7 @@ void espRcvEvent(int howMany) {
   buf[idx] = 0;
   switch(buf[0]){
 	case 'T':
-	  Serial.print("buf=");
-	  Serial.print(buf);
 	  unsigned long int newTime = strtoul(&buf[1], NULL, 10);
-	  Serial.print("; newTime=");
-	  Serial.println(newTime);
 	  setTime(newTime);
 	  break;
   }
@@ -343,15 +348,16 @@ void espReqEvent(){
 
 void digitalClockDisplay(){
   // digital clock display of the time
-  Serial.print(hour());
-  printDigits(minute());
-  printDigits(second());
+  time_t localTime = CE.toLocal(now(), &tcr);
+  Serial.print(hour(localTime));
+  printDigits(minute(localTime));
+  printDigits(second(localTime));
   Serial.print(" ");
-  Serial.print(day());
+  Serial.print(day(localTime));
   Serial.print(" ");
-  Serial.print(month());
+  Serial.print(month(localTime));
   Serial.print(" ");
-  Serial.print(year()); 
+  Serial.print(year(localTime)); 
   Serial.println(); 
 }
 void printDigits(int digits){
