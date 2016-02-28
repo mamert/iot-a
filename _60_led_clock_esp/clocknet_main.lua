@@ -63,5 +63,5 @@ end
 
 
 -- program
-init_i2c(7,6)
+init_i2c(6,7)
 prep_button1()
