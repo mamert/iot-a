@@ -54,7 +54,7 @@
 #include <Wire.h>
 #include <Time.h>        //http://www.arduino.cc/playground/Code/Time
 #include <Timezone.h>    //https://github.com/JChristensen/Timezone
-//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
 TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};       //Central European Standard Time
 Timezone CE(CEST, CET);
@@ -73,7 +73,6 @@ TimeChangeRule *tcr; //pointer to the time change rule, use to get TZ abbrev
 #define SHIFT_GREEN 8
 #define SHIFT_RED 16
 
-#define I2C_RESPONSE_LEN 20
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LEDCOUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -125,6 +124,7 @@ byte pattern = 0;
 void setup() {
   // pattern = EEPROM.read(eeprom_address__pattern);
   // EEPROM.update(eeprom_address__pattern, (pattern+1)%LED_PATTERN_COUNT);
+  semaphoreSetup()
   
   Serial.begin(9600);
   while (!Serial) ; // Needed for Leonardo only
@@ -343,7 +343,6 @@ void espReqEvent(){
   Serial.print(buf);
   Wire.write(buf);
 }
-
 
 
 void digitalClockDisplay(){
